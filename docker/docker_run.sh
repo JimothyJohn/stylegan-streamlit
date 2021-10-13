@@ -6,7 +6,6 @@ docker run --gpus all -it --rm \
     --ulimit stack=67108864 \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY=unix${DISPLAY} \
-    -e PYTHONPATH="/scratch/dnnlib:/scratch/torch_utils" \
     --user $(id -u):$(id -g) \
     -v `pwd`:/scratch -w /scratch -e HOME=/scratch \
     stylegan:latest

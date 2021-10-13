@@ -15,7 +15,7 @@ ENV LIBGL_ALWAYS_INDIRECT=1
 
 RUN apt-get update
 RUN apt-get -y install libglfw3-dev mesa-utils libgl1-mesa-glx
-RUN pip install imageio-ffmpeg==0.4.4 pyspng==0.1.0 imgui glfw pyopengl imageio
+RUN pip install imageio-ffmpeg==0.4.4 pyspng==0.1.0 imgui glfw pyopengl imageio dlib
 
 WORKDIR /workspace
 
