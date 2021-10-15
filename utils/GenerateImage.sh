@@ -3,6 +3,9 @@
 # Default args
 TRUNC=1
 SEED="0-5"
+# NET="models/stylegan3-r-ffhqu-256x256.pkl"
+NET="models/stylegan3-r-ffhq-1024x1024.pkl"
+OUTPUT_DIR="out/"
 
 PARAMS=""
 POSITIONAL=()
@@ -41,16 +44,16 @@ done
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 
-if [ ! -d "/input/${OUTPUT_DIR}" ]; then
-    mkdir -p /input/${OUTPUT_DIR}
+if [ ! -d "${OUTPUT_DIR}" ]; then
+    mkdir -p ${OUTPUT_DIR}
 fi
 
-docker run --gpus all -it --rm --shm-size=8g \
-	-v `pwd`:/input \
-    -v $HOME/github/stylegan-tools:/stylegan \
-	-w /stylegan -e DNNLIB_CACHE_DIR=/stylegan/.cache \
-    --user $(id -u):$(id -g) \
-	stylegan:latest python /stylegan/generate.py \
+docker run --gpus all -it --rm \
+    --shm-size=1g --ulimit memlock=-1 \
+    --ulimit stack=67108864 \
+	-v `pwd`:/scratch \
+	-w /scratch \
+	stylegan:latest python gen_images.py \
 	--trunc=${TRUNC} --seeds=${SEED} \
-   	--outdir=/input/${OUTPUT_DIR} \
-	--network=/stylegan/pretrained/${NET}.pkl
+   	--outdir=${OUTPUT_DIR} \
+	--network=$NET

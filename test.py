@@ -2,15 +2,8 @@ import PIL.Image
 import pickle
 import torch
 import numpy as np
-
-# Initial seed
-seed = 10
-c = None    # class labels (not used in this example)
-
-# Load Generator model
-with open('models/stylegan3-r-ffhq-1024x1024.pkl', 'rb') as f:
-    G = pickle.load(f)['G_ema'].cuda()  # torch.nn.Module
-    f.close()
+import streamlit as st
+import os
 
 def generate_image(G, seed):
     '''
@@ -37,15 +30,56 @@ def generate_image(G, seed):
     # Save as .png
     PIL.Image.fromarray(z_array, 'RGB').save(f'out/z_test.png')
 
-z = np.expand_dims(np.arange(G.z_dim), axis=0)*.1
-print(f'Max {np.max(z)}, Min: {np.min(z)}')
-z = torch.from_numpy(z).cuda()
-w = G.mapping(z=z, c=None, truncation_psi=1)
-print(w.shape)
+
+# Initial seed
+seed = 4
+c = None    # class labels (not used in this example)
+
+# Load Generator model
+model_list = []
+for filename in os.listdir('models'):
+    if filename.startswith('stylegan3'): model_list.append(filename)
+
+st.header('StyleGAN3 Playground')
+model = st.selectbox('Choose a model: ', model_list)
+with open(f'models/{model}', 'rb') as f:
+    G = pickle.load(f)['G_ema'].cuda()  # torch.nn.Module
+    f.close()
+f = st.slider('Choose a frequency', 0, 100, 0, 1) / 100000
+sinepolarity = st.checkbox('Sin/Cos')
+
+def sinewave(G, frequency, sine=True):
+    samples = np.arange(G.z_dim)
+    if sine: return np.sin(2 * np.pi * f * samples)
+    else: return np.cos(2 * np.pi * f * samples)
+
+z_batched = np.expand_dims(sinewave(G, f, sinepolarity), axis=0) 
+
+def extract_vectors(z_batched):
+    assert z_batched.shape == (1,512)
+    z_mem = torch.from_numpy(z_batched).cuda()
+    return G.mapping(z=z_mem, c=None, truncation_psi=1)
+
+w = extract_vectors(z_batched)
+map_array = w.cpu().numpy()
+
 w_img = G.synthesis(ws=w, noise_mode='const')[0]
-print(f'w_img shape: {w_img.shape}')
 w_img = (w_img.permute(1,2,0) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-print(f'{w_img.shape}')
 w_array = w_img.cpu().numpy()
-print(f'{w_array.shape}')
-PIL.Image.fromarray(w_array, 'RGB').save(f'out/w_test.png')
+st.image(w_array)
+PIL.Image.fromarray(w_array, 'RGB').save(f'out/w_mult.png')
+
+
+'''
+print(f'Mapping dimensions: {w.shape}')
+v_array = np.load('out/projected_w.npz')['w']
+# v_array[0][:3] = map_array[0][3]
+print(f'v_array dimensions: {v_array[0].shape}')
+print(f'map_array dimensions: {map_array[0].shape}')
+v_mem = torch.from_numpy(v_array).cuda()
+v_img = G.synthesis(ws=v_mem, noise_mode='const')[0]
+v_img = (v_img.permute(1,2,0) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+v_array = v_img.cpu().numpy()
+
+PIL.Image.fromarray(v_array, 'RGB').save(f'out/v_met_crazy.png')
+'''

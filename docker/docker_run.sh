@@ -4,9 +4,7 @@
 docker run --gpus all -it --rm \
     --shm-size=1g --ulimit memlock=-1 \
     --ulimit stack=67108864 \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -e DISPLAY=unix${DISPLAY} \
-    --user $(id -u):$(id -g) \
+    -p 8501:8501 \
     -v `pwd`:/scratch -w /scratch -e HOME=/scratch \
     stylegan:latest
 

@@ -82,7 +82,7 @@ docker run --gpus all -it --rm \
     --shm-size=1g --ulimit memlock=-1 \
     --ulimit stack=67108864 \
 	-v `pwd`:/scratch -w /scratch \
-	stylegan:latest python /scratch/alignFaces.py \
-    --predictor=/scratch/$PREDICTOR \
-    --input=/scratch/$INPUT_DIR \
-    --output=/scratch/$OUTPUT_DIR $JSON
+	stylegan:latest python alignFaces.py \
+    --predictor=$PREDICTOR \
+    --input=$INPUT_DIR \
+    --output=$OUTPUT_DIR $JSON

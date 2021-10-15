@@ -47,20 +47,26 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
     grid_w = grid_dims[0]
     grid_h = grid_dims[1]
 
+    # Calculate number of keyframes if not provided
     if num_keyframes is None:
         if len(seeds) % (grid_w*grid_h) != 0:
             raise ValueError('Number of input seeds must be divisible by grid W*H')
         num_keyframes = len(seeds) // (grid_w*grid_h)
 
+    # Initialize seeds as zeroed arrays
     all_seeds = np.zeros(num_keyframes*grid_h*grid_w, dtype=np.int64)
+    # Initialize seeds for all spots in grid
     for idx in range(num_keyframes*grid_h*grid_w):
         all_seeds[idx] = seeds[idx % len(seeds)]
 
+    # Shuffle seeds if required
     if shuffle_seed is not None:
         rng = np.random.RandomState(seed=shuffle_seed)
         rng.shuffle(all_seeds)
 
+    # Generate batch of 1-D length 512 arrays
     zs = torch.from_numpy(np.stack([np.random.RandomState(seed).randn(G.z_dim) for seed in all_seeds])).to(device)
+    # Create batch of (16, 512) mappings
     ws = G.mapping(z=zs, c=None, truncation_psi=psi)
     _ = G.synthesis(ws[:1]) # warm up
     ws = ws.reshape(grid_h, grid_w, num_keyframes, *ws.shape[1:])

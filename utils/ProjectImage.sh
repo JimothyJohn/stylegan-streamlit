@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-SEED="0"
-dGENERATOR="models/tylegan3-r-ffhq-1024x1024.pkl"
+SEED="3"
+# NET="models/stylegan3-r-ffhqu-256x256.pkl"
+NET="models/stylegan3-r-ffhq-1024x1024.pkl"
+OUTPUT_DIR="out/"
+STEPS="500"
 
 PARAMS=""
 POSITIONAL=()
@@ -26,8 +29,12 @@ while [[ $# -gt 0 ]]; do
             NET="$2"
             shift 2
             ;;
-        -s|--seed)
+        --seed)
             SEED="$2"
+            shift 2
+            ;;
+        --steps)
+            STEPS="$2"
             shift 2
             ;;
         -*|--*=) # unsupported flags
@@ -43,14 +50,20 @@ done
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 
-if [ ! -d "/input/${OUTPUT_DIR}" ]; then
-    mkdir -p /input/${OUTPUT_DIR}/vectors/
+if [ ! -d "${OUTPUT_DIR}" ]; then
+    mkdir -p ${OUTPUT_DIR}
+fi
+
+if [[ $INPUT_IMG = "" ]]; then
+    echo "Please choose an input image with --input"
+    exit 1
 fi
 
 docker run --gpus all -it --rm \
     --shm-size=1g --ulimit memlock=-1 \
     --ulimit stack=67108864 \
 	-v `pwd`:/scratch -w /scratch \
-	stylegan:latest python /scratch/projector.py \
-	--outdir=$OUTPUT_DIR --seed=$SEED --target=$INPUT_IMG \
-    --network=$GENERATOR
+	stylegan:latest python projector.py \
+	--outdir=$OUTPUT_DIR --seed=$SEED \
+    --target=$INPUT_IMG --network=$NET \
+    --save-video="True" --num-steps=$STEPS
