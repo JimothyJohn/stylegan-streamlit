@@ -141,3 +141,8 @@ python test.py
 python test.py 
 python test.py 
 python test.py 
+streamlit run test.py
+mkdir models
+ls models/
+sudo rm -r models/
+streamlit run test.py 

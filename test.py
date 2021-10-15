@@ -38,22 +38,47 @@ c = None    # class labels (not used in this example)
 # Load Generator model
 model_list = []
 for filename in os.listdir('models'):
-    if filename.startswith('stylegan3'): model_list.append(filename)
+    if filename.startswith('stylegan3'):
+        model_list.append(filename[10:])
 
 st.header('StyleGAN3 Playground')
+col1, col2 = st.columns(2)
+
 model = st.selectbox('Choose a model: ', model_list)
-with open(f'models/{model}', 'rb') as f:
+with open(f'models/stylegan3-{model}', 'rb') as f:
     G = pickle.load(f)['G_ema'].cuda()  # torch.nn.Module
     f.close()
-f = st.slider('Choose a frequency', 0, 100, 0, 1) / 100000
-sinepolarity = st.checkbox('Sin/Cos')
 
-def sinewave(G, frequency, sine=True):
-    samples = np.arange(G.z_dim)
-    if sine: return np.sin(2 * np.pi * f * samples)
-    else: return np.cos(2 * np.pi * f * samples)
 
-z_batched = np.expand_dims(sinewave(G, f, sinepolarity), axis=0) 
+frequency = col1.slider('Choose a first frequency', 1, 100, 1, 1, key=1) / 100000
+frequency_right = col2.slider('Choose a first frequency', 1, 100, 1, 1, key=2) / 100000
+amplitude = col1.slider('Choose an amplitude', 0., 7., 0., .1)
+# amplitude = 1 
+cutoff = col1.slider('Choose a cutoff level', 1, G.z_dim, 1)
+cutoff_dir = col1.checkbox('Invert cutoff')
+sinepolarity = col1.checkbox('Sin/Cos')
+waveform = col1.selectbox('Choose a waveform', ['ramp', 'sine'], 1)
+
+def sinewave(G, frequency, amplitude, sine=True):
+    sine_array = np.arange(G.z_dim)
+    if sine: sine_array = np.sin(2 * np.pi * frequency * sine_array)
+    else: sine_array =  np.cos(2 * np.pi * frequency * sine_array)
+    return sine_array
+
+def ramp(G):
+    return np.arange(G.z_dim)
+
+
+if waveform == 'sine':
+    wave = sinewave(G, frequency, amplitude, sinepolarity)
+elif waveform == 'ramp':
+    wave = ramp(G)
+
+if cutoff_dir: wave[:cutoff] = 0
+else: wave[-cutoff:] = 0
+
+wave = np.power(wave, amplitude)
+z_batched = np.expand_dims(wave, axis=0)  
 
 def extract_vectors(z_batched):
     assert z_batched.shape == (1,512)
@@ -66,8 +91,7 @@ map_array = w.cpu().numpy()
 w_img = G.synthesis(ws=w, noise_mode='const')[0]
 w_img = (w_img.permute(1,2,0) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
 w_array = w_img.cpu().numpy()
-st.image(w_array)
-PIL.Image.fromarray(w_array, 'RGB').save(f'out/w_mult.png')
+col1.image(w_array)
 
 
 '''
