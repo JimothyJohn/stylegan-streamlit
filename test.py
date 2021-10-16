@@ -44,16 +44,16 @@ for filename in os.listdir('models'):
 st.header('StyleGAN3 Playground')
 col1, col2 = st.columns(2)
 
-model = st.selectbox('Choose a model: ', model_list)
+model = col1.selectbox('Choose a model: ', model_list)
 with open(f'models/stylegan3-{model}', 'rb') as f:
     G = pickle.load(f)['G_ema'].cuda()  # torch.nn.Module
     f.close()
 
 
-frequency = col1.slider('Choose a first frequency', 1, 100, 1, 1, key=1) / 100000
+frequency = col1.slider('Choose a first frequency', 1, 100, 1, 1, key=1) / 10000
 frequency_right = col2.slider('Choose a first frequency', 1, 100, 1, 1, key=2) / 100000
-amplitude = col1.slider('Choose an amplitude', 0., 7., 0., .1)
-# amplitude = 1 
+# amplitude = col1.slider('Choose an amplitude', 0., 7., 0., .1)
+amplitude = 1 
 cutoff = col1.slider('Choose a cutoff level', 1, G.z_dim, 1)
 cutoff_dir = col1.checkbox('Invert cutoff')
 sinepolarity = col1.checkbox('Sin/Cos')
@@ -78,6 +78,7 @@ if cutoff_dir: wave[:cutoff] = 0
 else: wave[-cutoff:] = 0
 
 wave = np.power(wave, amplitude)
+col2.line_chart(wave)
 z_batched = np.expand_dims(wave, axis=0)  
 
 def extract_vectors(z_batched):
@@ -92,7 +93,6 @@ w_img = G.synthesis(ws=w, noise_mode='const')[0]
 w_img = (w_img.permute(1,2,0) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
 w_array = w_img.cpu().numpy()
 col1.image(w_array)
-
 
 '''
 print(f'Mapping dimensions: {w.shape}')

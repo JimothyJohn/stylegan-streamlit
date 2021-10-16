@@ -2,3 +2,6 @@
 input/*
 out/*
 models/*
+.bash_history
+.python_history
+.streamlit

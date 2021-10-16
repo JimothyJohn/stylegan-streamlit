@@ -2,7 +2,7 @@
 
 SEED="3"
 # NET="models/stylegan3-r-ffhqu-256x256.pkl"
-NET="models/stylegan3-r-ffhq-1024x1024.pkl"
+NET="models/stylegan3-r-ffhqu-256x256.pkl"
 OUTPUT_DIR="out/"
 STEPS="500"
 
