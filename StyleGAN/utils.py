@@ -69,77 +69,70 @@ def get_landmarks(dlibImage):
     # Create landmark list
     return [(part.x, part.y) for part in shape.parts()]
 
-# Get predictor, input directory, and output directory
-parser = argparse.ArgumentParser()
-parser.add_argument('--predictor', help='Shape predictor .dat file', dest='predictor_path', default="dlib/shape_predictor_68_face_landmarks.dat")
-parser.add_argument('--input', help='Target image folder', dest='faces_folder_path', required=True)
-parser.add_argument('--output', help='Aligned image folder', dest='output_folder_path', required=True)
-parser.add_argument('--json', help='Landmark output file', dest='json', required=True)
-args = parser.parse_args()
-
 SAVING_JSON = True
 
-# Create output directory if needed
-if not os.path.exists(args.output_folder_path): os.mkdir(args.output_folder_path)
+def AlignFace(input, jsonFilename):
+    # Create output directory if needed
+    if not os.path.exists('out/json'): os.mkdir('out/json')
 
-# Load json template and duplicate
-with open('templates/template.json', 'r') as f:
-    f_json = json.load(f)
-    f.close()
+    # Load json template and duplicate
+    with open('templates/template.json', 'r') as f:
+        f_json = json.load(f)
+        f.close()
 
-newJson = cleanJSON(f_json)
+    newJson = cleanJSON(f_json)
 
-# Initialize dlib objects
-detector = dlib.get_frontal_face_detector()
-faces = dlib.full_object_detections()
-predictor = dlib.shape_predictor(args.predictor_path)
+    # Initialize dlib objects
+    detector = dlib.get_frontal_face_detector()
+    faces = dlib.full_object_detections()
+    predictor = dlib.shape_predictor(args.predictor_path)
 
-# For every image in the target directory
-if len(glob.glob(os.path.join(args.faces_folder_path, "*.*")))==0:
-    print('No input files available!')
-    exit()
+    # For every image in the target directory
+    if len(glob.glob(os.path.join(args.faces_folder_path, "*.*")))==0:
+        print('No input files available!')
+        exit()
 
-for f in sorted(glob.glob(os.path.join(args.faces_folder_path, "*.*"))):
-    num = str(0)
-    fileName = Path(f).stem # extract filename
+    for f in sorted(glob.glob(os.path.join(input, "*.*"))):
+        num = str(0)
+        fileName = Path(f).stem # extract filename
 
-    # Save metadata
-    img = dlib.load_rgb_image(f) # load image for dlib
+        # Save metadata
+        img = dlib.load_rgb_image(f) # load image for dlib
 
-    # Find bounding box of faces and upsample once
-    dets = detector(img, 1)
-    if len(dets)==0:
-        print(f"Skipping image {f}")
-        continue # if no faces are found continue
-    
-    print(f"Aligning image {f}")
-    detection = dets[0] # CHANGE THIS LINE TO LOOP FOR MULTIPLE FACES
-    shape = predictor(img, detection) # get face landmarks
-    # Create landmark list
-    landmarks = [(part.x, part.y) for part in shape.parts()]
-    newJson[num]["in_the_wild"]["face_landmarks"] = landmarks # save landmarks to json
-    newJson[num]["in_the_wild"]["face_rect"]=[detection.left(),
-                                            detection.top(),
-                                            detection.right(),
-                                            detection.bottom()]
-    newJson[num]["in_the_wild"]["file_path"] = str(f)
-    newJson[num]["in_the_wild"]["file_size"]= os.path.getsize(f)
+        # Find bounding box of faces and upsample once
+        dets = detector(img, 1)
+        if len(dets)==0:
+            print(f"Skipping image {f}")
+            continue # if no faces are found continue
+        
+        print(f"Aligning image {f}")
+        detection = dets[0] # CHANGE THIS LINE TO LOOP FOR MULTIPLE FACES
+        shape = predictor(img, detection) # get face landmarks
+        # Create landmark list
+        landmarks = [(part.x, part.y) for part in shape.parts()]
+        newJson[num]["in_the_wild"]["face_landmarks"] = landmarks # save landmarks to json
+        newJson[num]["in_the_wild"]["face_rect"]=[detection.left(),
+                                                detection.top(),
+                                                detection.right(),
+                                                detection.bottom()]
+        newJson[num]["in_the_wild"]["file_path"] = str(f)
+        newJson[num]["in_the_wild"]["file_size"]= os.path.getsize(f)
 
-    # Align to landmarks in json file
-    alignedImage = recreate_aligned_images(newJson,
-                                        output_size=1024,
-                                        transform_size=4096,
-                                        enable_padding=True)
+        # Align to landmarks in json file
+        alignedImage = recreate_aligned_images(newJson,
+                                            output_size=1024,
+                                            transform_size=4096,
+                                            enable_padding=True)
 
-    # Save aligned image
-    savePath = "{}/{}.png".format(args.output_folder_path, fileName)
-    alignedImage.save(savePath) # save image to file
-    if SAVING_JSON:
-        newJson[num]["image"]["file_path"] = savePath
-        newJson[num]["image"]["file_size"]= os.path.getsize(savePath)
-        # CHANGE TO USE IMAGE VARIABLE
-        newJson[num]["image"]["face_landmarks"] = get_landmarks(dlib.load_rgb_image(savePath))
+        # Save aligned image
+        savePath = "{}/{}.png".format('/out', fileName)
+        alignedImage.save(savePath) # save image to file
+        if SAVING_JSON:
+            newJson[num]["image"]["file_path"] = savePath
+            newJson[num]["image"]["file_size"]= os.path.getsize(savePath)
+            # CHANGE TO USE IMAGE VARIABLE
+            newJson[num]["image"]["face_landmarks"] = get_landmarks(dlib.load_rgb_image(savePath))
 
-        with open("{}/{}.json".format(args.json,fileName), 'w') as f:
-            json.dump(newJson, f)
-            f.close()
+            with open("out/json/{}.json".format(jsonFilename), 'w') as f:
+                json.dump(newJson, f)
+                f.close()

@@ -6,6 +6,8 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
+# https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/projector.py
+
 """Project given image to the latent space of pretrained network pickle."""
 
 import copy
@@ -186,7 +188,7 @@ def run_projection(
     # Render debug output: optional video and projected image and W vector.
     os.makedirs(outdir, exist_ok=True)
     if save_video:
-        video = imageio.get_writer(f'{outdir}/proj.mp4', mode='I', fps=10, codec='libx264', bitrate='16M')
+        video = imageio.get_writer(f'{outdir}/proj.mp4', mode='I', fps=60, codec='libx264', bitrate='16M')
         print (f'Saving optimization progress video "{outdir}/proj.mp4"')
         for projected_w in projected_w_steps:
             synth_image = G.synthesis(projected_w.unsqueeze(0), noise_mode='const')

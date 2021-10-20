@@ -5,3 +5,6 @@ models/*
 .bash_history
 .python_history
 .streamlit
+*.mp4
+*.png
+*.jpg
