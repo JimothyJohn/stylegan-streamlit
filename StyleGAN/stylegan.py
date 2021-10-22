@@ -2,7 +2,7 @@
 ### TO-DO ###
 # 1 Eliminate GPU-CPU back and forth
 # 2 Add model download section
-# 3 Make mappings v2 friendly
+# 3 Make mappings style_vector friendly
 # 4 Add photo upload and face align functionality
 # 5 Optimize projection speed when using pre-existing vectors
 import torch
@@ -13,6 +13,8 @@ import pickle
 from projector import project
 import streamlit as st
 import utils
+import PIL
+import imageio
 
 # Load Generator model
 model_list = []
@@ -29,8 +31,8 @@ for filename in os.listdir('out'):
 # Load input images
 image_list = []
 for filename in os.listdir('out'):
-    if filename.endswith(('.jpg','.png')):
-        image_list.append(f'out/{filename}')
+    if filename.endswith(('.jpg','.png', '.jpeg')):
+        image_list.append(f'{filename}')
 
 device = torch.device('cuda')
 
@@ -49,7 +51,8 @@ class Generation():
             self.seed = self.left_col.slider('Choose a seed', 0, 10, 0, 1)
         else:
             self.octave = self.left_col.slider('Octave:', 1, 10, 1, 1)
-            self.frequency = self.left_col.slider('Choose a frequency', 1, 100, 1, 1) / 100000 * self.octave
+            self.frequency = self.left_col.slider('Choose a base frequency', 1, 100, 1, 1) / 100000 * self.octave
+            self.modulation = self.left_col.slider('Choose a modulation frequency', 1, 100, 1, 1) / 100000 * self.octave
             # self.amplitude = st.slider('Choose an amplitude', 0., 4., 0., .1)
             self.amplitude = 1
             self.cutoff = self.left_col.slider('Choose a cutoff level', 1, self.G.z_dim, 1)
@@ -57,49 +60,50 @@ class Generation():
             self.sinepolarity = self.left_col.checkbox('Sin/Cos')
             self.waveform = self.left_col.selectbox('Choose a waveform', ['ramp', 'sine'], 1)
 
-    def _Sinewave(self, plot=False):
-        sine_array = np.arange(self.G.z_dim)
-        if self.sinepolarity: sine_array = np.sin(2 * np.pi * self.frequency * sine_array)
-        else: sine_array =  np.cos(2 * np.pi * self.frequency * sine_array)
+    def _Sinewave(self, ramp):
+        if self.sinepolarity: sine_array = np.sin(2 * np.pi * self.frequency * ramp)
+        else: sine_array =  np.cos(2 * np.pi * self.frequency * ramp)
         return sine_array
 
-    def _Ramp(self): return np.arange(self.G.z_dim)
-
-    def DisplayImage(self):
+    def GenerateImage(self):
         if self.method == 'random':
             self.z_batched = np.random.RandomState(self.seed).randn(1, self.G.z_dim)
         else:
+            wave = np.arange(self.G.z_dim)
             if self.waveform == 'sine':
-                wave = self._Sinewave()
-            elif self.waveform == 'ramp':
-                wave = self._Ramp()
+                wave = self._Sinewave(wave)
 
             if self.cutoff_dir: wave[:self.cutoff] = 0
             else: wave[-self.cutoff:] = 0
 
-            wave = np.power(wave, self.amplitude)
             self.right_col.line_chart(wave)
+            self.right_col.line_chart(Modulate(wave, self.modulation))
+            wave = Modulate(wave, self.modulation)
             self.z_batched = np.expand_dims(wave, axis=0)
         
-        self.right_col.image(VectorsToRGB(self.G, self.z_batched))
+        self.image_array = VectorsToRGB(self.G, self.z_batched)
         if self.right_col.button('Save vectors'):
             SaveMappings(self.G, self.z_batched, self.vectorname)
 
+        return self.image_array
 
 class Projection():
+    def __init__(self):
+        self.left, self.right = st.columns(2)
+    
     def GUI(self):
-        model = st.selectbox('Choose a model: ', model_list)
+        model = self.left.selectbox('Choose a model: ', model_list)
         with open(f'models/stylegan3-{model}', 'rb') as f:
             self.G = pickle.load(f)['G_ema'].cuda()  # torch.nn.Module
             f.close()
         
-        self.image_file = st.selectbox('Choose an image', image_list)
-        self.num_steps = st.slider('Number of steps', 100, 1000, 500, 50)
+        self.image_file = self.left.selectbox('Choose an image', image_list, 0)
+        self.right.header('Projecting vectors for')
+        self.right.image(f'out/{self.image_file}')
+        self.num_steps = self.left.slider('Number of steps', 100, 2000, 500, 100)
 
     def Project(self):
-        target_pil = PIL.Image.open(self.image_file).convert('RGB')
-        st.write('Projecting vectors for')
-        st.image(np.asarray(target_pil))
+        target_pil = PIL.Image.open(f'out/{self.image_file}').convert('RGB')
         # Taken from line 168 of https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/projector.py
         w, h = target_pil.size
         s = min(w, h)
@@ -116,9 +120,9 @@ class Projection():
             verbose=True
         )[-1].unsqueeze(0).cpu().numpy()
         
-        np.savez(f'{self.image_file[:-4:]}.npz', w=self.vectors)
-        st.header('Finished projection')
-        st.image(MappingsToRGB(self.G, self.vectors))
+        np.savez(f'out/{self.image_file[:-4:]}.npz', w=self.vectors)
+        self.right.header('Finished projection')
+        self.right.image(MappingsToRGB(self.G, self.vectors))
 
 
 class Synthesis():
@@ -135,42 +139,41 @@ class Synthesis():
         self.vector_file = self.col.selectbox('Choose a vector', vector_list, 0, key=self.idx)
 
     def Synthesize(self):
-        self.vector_array = np.load(f'out/{self.vector_file}.npz')['w']
-        self.vector_image = MappingsToRGB(self.G, self.vector_array)
-        self.col.image(self.vector_image)
+        self.mapping_batch = np.load(f'out/{self.vector_file}.npz')['w']
+        self.image_array = MappingsToRGB(self.G, self.mapping_batch)
+        self.col.image(self.image_array)
+        return self.image_array
 
-    def Mix(self, style_vector):
-        layer = 16
-        assert style_vector.vector_array.shape == (1,layers,512)
-        self.vector_array[0][:8] = style_vector.vector_array[0][:8]
+    def Mix(self, style_mappings, mix_level):
+        layers = 16
+        assert style_mappings.shape == (1,layers,512)
+        self.mapping_batch[0][-mix_level:] = style_mappings[0][-mix_level:]
+        # else: self.mapping_batch[0][:mix_level] = style_vector[0][:mix_level]
+        return MappingsToRGB(self.G, self.mapping_batch)
+    
+    def ModulateMapping(self, frequency=0, power=100000000):
+        sine_array = np.arange(self.mapping_batch.shape[2])
+        sine_array = np.sin(2 * np.pi * frequency * sine_array)
+        modulated = np.multiply(self.mapping_batch, sine_array)
+        return MappingsToRGB(self.G, modulated)
 
-
-# Save batch of vectors
+# Save batch of vectors as .npz of mappings
 def SaveMappings(G, z_batched, filename):
-    print(f'z: {z_batched}')
+    assert z_batched.shape == (1, 512)
     z_mem = torch.from_numpy(z_batched).to(device)
-    w_samples = G.mapping(z_mem, None)  # [N, L, C]
-    w_samples = w_samples.cpu().numpy().astype(np.float32)       # [N, 1, C]
+    # Extract (1, 16, 512) mappings from vectors
+    w_samples = G.mapping(z_mem, None)
+    # Convert from torch tensor to numpy array
+    w_samples = w_samples.cpu().numpy().astype(np.float32)
     np.savez(f'out/{filename}.npz', w=w_samples)
 
 
 # Convert (1, 16, 512) mappings to RGB array
 def MappingsToRGB(G, mapping_batch):
-    st.write(mapping_batch.shape)
     assert mapping_batch.shape == (1, 16, 512)
     vector_mem = torch.from_numpy(mapping_batch).cuda()
     vector_img = G.synthesis(ws=vector_mem, noise_mode='const')
     return TorchToRGB(vector_img)
-
-
-# Exchange layers of given images
-def StyleMix(v1, v2, mix_level, invert):
-    layers = 16
-    assert v1.vector_array.shape == (1,layers,512)
-    assert v2.vector_array.shape == (1,layers,512)
-    if invert: v1.vector_array[0][-mix_level:] = v2.vector_array[0][-mix_level:]
-    else: v1.vector_array[0][:mix_level] = v2.vector_array[0][:mix_level]
-    return MappingsToRGB(v1.G, v1.vector_array)
 
 
 # Convert (1, 512) latent vectors to RGB array
@@ -192,3 +195,61 @@ def TorchToRGB(vector_img):
     vector_img = vector_img.permute(1, 2, 0).clamp(0, 255).to(torch.uint8)
     # Convert to numpy array in CPU memory
     return vector_img.cpu().numpy()
+
+
+def Modulate(vector_array, frequency=0, power=10000000):
+    sine_array = np.arange(vector_array.shape[0])
+    sine_array = np.sin(2 * np.pi * frequency * sine_array) * power
+    modulated = np.multiply(vector_array, sine_array)
+    return modulated
+
+
+def ModulateMapping(mapping_batch, frequency=0, power=10000000):
+    assert mapping_batch.shape == (1, 16, 512)
+    sine_array = np.arange(mapping_batch.shape[0])
+    sine_array = np.sin(2 * np.pi * frequency * sine_array) * power
+    modulated = np.multiply(mapping_batch, sine_array)
+    return MappingsToRGB(G, modulated) 
+
+
+def IsolateChannel(mapping_batch, channel):
+    assert mapping_batch.shape == (1, 16, 512)
+    channel_blank = np.zeros(mapping_batch.shape)
+    channel_blank[0][channel] = mapping_batch[0][channel]
+    return channel_blank
+
+def DropChannel(mapping_batch, channel):
+    assert mapping_batch.shape == (1, 16, 512)
+    channel_blank = np.zeros(mapping_batch.shape)
+    mapping_batch[0][:channel] = channel_blank[0][:channel]
+    return mapping_batch
+
+def SaveVideo(synthesis, seconds, frequency, modulation):
+    fps=60
+    # Render video.
+    video_out = imageio.get_writer('out/kitty.mp4', mode='I', fps=fps, codec='libx264')
+    frequency = np.linspace(frequency[0], frequency[1], seconds*fps)
+    modulation = np.linspace(modulation[0], modulation[1], seconds*fps)
+    for idx, mod in enumerate(modulation):
+        img = synthesis.ModulateMapping(
+            frequency[idx],
+        )
+
+        img = synthesis.ModulateMapping(
+            mod,
+        )
+    
+        video_out.append_data(img)
+
+    for idx in range(len(modulation)):
+        img = synthesis.ModulateMapping(
+            frequency[idx],
+        )
+
+        img = synthesis.ModulateMapping(
+            modulation[-idx],
+        )
+    
+        video_out.append_data(img)   
+
+    video_out.close()

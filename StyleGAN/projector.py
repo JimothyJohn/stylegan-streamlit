@@ -49,7 +49,9 @@ def project(
 
     # Compute w stats.
     logprint(f'Computing W midpoint and stddev using {w_avg_samples} samples...')
+    # Create w_avg_samples size batch of (1,512) size vectors
     z_samples = np.random.RandomState(123).randn(w_avg_samples, G.z_dim)
+    # Extract (1, 16, 512) mappings from vectors
     w_samples = G.mapping(torch.from_numpy(z_samples).to(device), None)  # [N, L, C]
     w_samples = w_samples[:, :1, :].cpu().numpy().astype(np.float32)       # [N, 1, C]
     w_avg = np.mean(w_samples, axis=0, keepdims=True)      # [1, 1, C]
