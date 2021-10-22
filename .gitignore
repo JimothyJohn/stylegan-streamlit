@@ -8,3 +8,4 @@ models/*
 *.mp4
 *.png
 *.jpg
+*.npz
