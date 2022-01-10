@@ -40,14 +40,33 @@ elif program == 'Synthesize':
     img = synthesis_one.Synthesize()
 
     if 'Mix' in mods:
-        synthesis_two = stylegan.Synthesis(right, 'right')
+        synthesis_two = stylegan.Synthesis(mid, 'mid')
+        synthesis_three = stylegan.Synthesis(right, 'right')
         synthesis_two.GUI()
+        synthesis_three.GUI()
         synthesis_two.Synthesize()
+        synthesis_three.Synthesize()
         mix_level = right.slider('Mix level', 1, 6, 4, 1) + 2
         img = synthesis_one.Mix(
             synthesis_two.mapping_batch,
             mix_level,
         )
+        
+        seed = int(abs(synthesis_one.mapping_batch[0][0][4] * 128))
+        length = right.slider('Choose a length',0,20,4)
+        if right.button('Save video'):
+            st.header('Writing video...')
+            stylegan.SaveVideo(
+                synthesis_one.G,
+                [
+                    synthesis_one.mapping_batch,
+                    synthesis_two.mapping_batch,
+                    synthesis_three.mapping_batch,
+                ],
+                length,
+            )
+
+        st.header('Done!')
 
     if 'Modulate' in mods:
         octave = right.slider('Octave:', 1, 10, 1, 1)
@@ -77,7 +96,7 @@ elif program == 'Synthesize':
         if right.button('Save video'):
             stylegan.SaveVideo(
                 synthesis_one,
-                8,
+                0.5,
                 [loFrequency, hiFrequency],
                 [loMod, hiMod],
             )
@@ -100,4 +119,3 @@ elif program == 'Align':
     if run_alignment:
         aligned_face = np.asarray(utils.AlignFace(f'{image_file}'))
         right.image(aligned_face)
-

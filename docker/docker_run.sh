@@ -4,7 +4,7 @@
 docker run --gpus all -it --rm \
     --shm-size=1g --ulimit memlock=-1 \
     --ulimit stack=67108864 \
-    -p 8501:8501 \
+    -v $HOME/Datasets/Art:/data \
     -v `pwd`:/scratch -w /scratch -e HOME=/scratch \
     stylegan:latest
 

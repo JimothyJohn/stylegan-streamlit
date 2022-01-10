@@ -19,8 +19,9 @@ import imageio
 # Load Generator model
 model_list = []
 for filename in os.listdir('models'):
-    if filename.startswith('stylegan3'):
-        model_list.append(filename[10:])
+    #if filename.startswith('stylegan3'):
+    #    model_list.append(filename[10:])
+    model_list.append(filename)
 
 # Load vector files
 vector_list = []
@@ -41,14 +42,14 @@ class Generation():
         self.method = st.sidebar.selectbox('Method', ['random','waveform'])
         self.left_col, self.right_col = st.columns(2)
         model = self.left_col.selectbox('Choose a model: ', model_list)
-        with open(f'models/stylegan3-{model}', 'rb') as f:
+        with open(f'models/{model}', 'rb') as f:
             self.G = pickle.load(f)['G_ema'].cuda()  # torch.nn.Module
             f.close()
         
         self.vectorname = self.right_col.text_input('Enter name for vector file', 'my_vectors')
 
         if self.method == 'random':
-            self.seed = self.left_col.slider('Choose a seed', 0, 10, 0, 1)
+            self.seed = self.left_col.slider('Choose a seed', 0, 1000, 500, 1)
         else:
             self.octave = self.left_col.slider('Octave:', 1, 10, 1, 1)
             self.frequency = self.left_col.slider('Choose a base frequency', 1, 100, 1, 1) / 100000 * self.octave
@@ -93,7 +94,7 @@ class Projection():
     
     def GUI(self):
         model = self.left.selectbox('Choose a model: ', model_list)
-        with open(f'models/stylegan3-{model}', 'rb') as f:
+        with open(f'models/{model}', 'rb') as f:
             self.G = pickle.load(f)['G_ema'].cuda()  # torch.nn.Module
             f.close()
         
@@ -132,7 +133,7 @@ class Synthesis():
     
     def GUI(self):
         model = self.col.selectbox('Choose a model: ', model_list, key=self.idx)
-        with open(f'models/stylegan3-{model}', 'rb') as f:
+        with open(f'models/{model}', 'rb') as f:
             self.G = pickle.load(f)['G_ema'].cuda()  # torch.nn.Module
             f.close()
         
@@ -170,7 +171,7 @@ def SaveMappings(G, z_batched, filename):
 
 # Convert (1, 16, 512) mappings to RGB array
 def MappingsToRGB(G, mapping_batch):
-    assert mapping_batch.shape == (1, 16, 512)
+    assert mapping_batch.shape[1] == 16
     vector_mem = torch.from_numpy(mapping_batch).cuda()
     vector_img = G.synthesis(ws=vector_mem, noise_mode='const')
     return TorchToRGB(vector_img)
@@ -209,47 +210,115 @@ def ModulateMapping(mapping_batch, frequency=0, power=10000000):
     sine_array = np.arange(mapping_batch.shape[0])
     sine_array = np.sin(2 * np.pi * frequency * sine_array) * power
     modulated = np.multiply(mapping_batch, sine_array)
-    return MappingsToRGB(G, modulated) 
+    return MappingsToRGB(G, modulated[0]) 
 
 
 def IsolateChannel(mapping_batch, channel):
     assert mapping_batch.shape == (1, 16, 512)
-    channel_blank = np.zeros(mapping_batch.shape)
+    channel_blank = np.zeroslike(mapping_batch)
     channel_blank[0][channel] = mapping_batch[0][channel]
     return channel_blank
 
+
 def DropChannel(mapping_batch, channel):
     assert mapping_batch.shape == (1, 16, 512)
-    channel_blank = np.zeros(mapping_batch.shape)
+    channel_blank = np.zeroslike(mapping_batch)
     mapping_batch[0][:channel] = channel_blank[0][:channel]
     return mapping_batch
 
+'''
 def SaveVideo(synthesis, seconds, frequency, modulation):
     fps=60
     # Render video.
     video_out = imageio.get_writer('out/kitty.mp4', mode='I', fps=fps, codec='libx264')
-    frequency = np.linspace(frequency[0], frequency[1], seconds*fps)
-    modulation = np.linspace(modulation[0], modulation[1], seconds*fps)
-    for idx, mod in enumerate(modulation):
+    frequency = np.linspace(frequency[0], frequency[1], int(seconds*fps))
+    modulation = np.linspace(modulation[0], modulation[1], int(seconds*fps))
+    
+    for freq, mod in frequency:
         img = synthesis.ModulateMapping(
-            frequency[idx],
+            freq
         )
+        video_out.append_data(img)
 
+    for mod in modulation:
+        img = synthesis.ModulateMapping(
+            freq,
+        )
+        video_out.append_data(img)
+
+    for freq in frequency[::-1]:
+        img = synthesis.ModulateMapping(
+            freq,
+        )
+        video_out.append_data(img)
+
+    for mod in modulation[::-1]:
         img = synthesis.ModulateMapping(
             mod,
         )
-    
         video_out.append_data(img)
 
-    for idx in range(len(modulation)):
-        img = synthesis.ModulateMapping(
-            frequency[idx],
-        )
+    video_out.close()
+'''
 
-        img = synthesis.ModulateMapping(
-            modulation[-idx],
-        )
+def SaveVideo(G, vectors, length):
+    assert len(vectors) > 1
+    fps=60
+    seconds = length / len(vectors)
+    transitions = vectors[0]
+
+    for idx in range(len(vectors)-1):
+        transitions = np.concatenate((transitions,np.linspace(vectors[idx][0], vectors[idx+1][0], int(seconds*fps))))
+
+    transitions = np.concatenate((transitions,np.linspace(vectors[-1][0], vectors[0][0], int(seconds*fps))))
     
-        video_out.append_data(img)   
+    video_out = imageio.get_writer('out/mixing.mp4', mode='I', fps=60, codec='libx264')
+
+    for frame in transitions:
+        frame_batch = np.expand_dims(frame, axis=0)
+        img = MappingsToRGB(G, frame_batch) 
+
+        video_out.append_data(img)
 
     video_out.close()
+
+def CreateVectorPath(start, finish, seconds):
+    assert start.shape == (1, 16, 512)
+    assert finish.shape == (1, 16, 512)
+    fps=60
+
+    return 
+
+def RandomMappingBatch(seed=0):
+    # Create vector array (0-2)[512]
+    rand = np.absolute(np.random.RandomState(seed).randn(512)) * 2
+    # Copy vectors into batch of mappings
+    mapping_batch = np.expand_dims(np.repeat(rand[np.newaxis,...], 16, axis=0), axis=0)
+    return mapping_batch
+
+''' 
+def SaveVideo(G, vectors, length):
+    assert len(vectors) > 1
+    fps=60
+    seconds = length / len(vectors)
+    seed = int(vectors[0][0][0][0] * 128)
+    transitions = vectors[0]
+
+    for idx in range(len(vectors)-1):
+        rand = np.random.RandomState(seed+idx).randn(16,516)
+        transitions = np.concatenate((transitions,np.linspace(vectors[idx][0], rand, int(seconds*fps))))
+        transitions = np.concatenate((transitions,np.linspace(rand, vectors[idx+1][0], int(seconds*fps))))
+
+    rand = np.random.RandomState(seed+100).randn(16,516)
+    transitions = np.concatenate((transitions,np.linspace(vectors[-1][0], rand, int(seconds*fps))))
+    
+    video_out = imageio.get_writer('out/mixing.mp4', mode='I', fps=60, codec='libx264')
+
+    for frame in transitions:
+        frame_batch = np.expand_dims(frame, axis=0)
+        img = MappingsToRGB(G, frame_batch) 
+
+        video_out.append_data(img)
+
+    video_out.close()
+'''
