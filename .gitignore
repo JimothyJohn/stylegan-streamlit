@@ -151,11 +151,12 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# My stuff 
 input/*
 out/*
 models/*
 training-runs/*
-.activeloop
+.activeloop/
 .bash_history
 .python_history
 .streamlit/
