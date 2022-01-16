@@ -167,3 +167,4 @@ training-runs/*
 *.zip
 .torch/
 .local/
+.vscode/
