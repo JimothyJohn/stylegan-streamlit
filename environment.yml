@@ -16,11 +16,11 @@ dependencies:
   - ninja=1.10.2
   - matplotlib=3.4.2
   - imageio=2.9.0
-  - psutil=5.9.0
-  - tensorboard=2.7.0
-  - imageio-ffmpeg=0.4.3
-  - glfw=3.3.6
-  - pyopengl=3.1.5
+  - psutil=5.8.0
+  - tensorboard=2.6.0
   - pip:
     - imgui==1.3.0
-    - pyspng==0.1.0
+    - glfw==2.2.0
+    - pyopengl==3.1.5
+    - imageio-ffmpeg==0.4.3
+    - pyspng

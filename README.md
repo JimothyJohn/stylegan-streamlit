@@ -4,30 +4,37 @@
 
 This is a Streamlit app for [StyleGAN3](https://github.com/NVlabs/stylegan3/). You'll want to go there for information since this is just a demo utility.
 
-### Prerequisites
+## Prereqs
 
-* Ubuntu (tested on 20.04)
-* NVIDIA GPU
-* [Docker](https://docs.docker.com/engine/install/ubuntu/#install-using-the-convenience-script)
-* [NVIDIA Container Runtime](https://docs.docker.com/config/containers/resource_constraints/#gpuhttps://ngc.nvidia.com/signin)
+* Debian-based Linux
+* NVIDIA GPU >=8GB
+* [CUDA >=11](https://developer.nvidia.com/cuda-downloads?target_os=Linux)
+* [cuDNN >=8.2](https://developer.nvidia.com/cudnn-download-survey)
 
 ## Setup
 
-Build the docker image and run with:
+Clone the repo and move on in:
 
 ```bash
-user@host:~$ git clone https://github.com/JimothyJohn/stylegan-scripts # clone repo
-user@host:~$ cd stylegan-scripts # move to repo directory
-user@host:~$ docker/docker_build.sh # Build Docker image
-user@host:~$ utils/Streamlit.sh # Run Streamlit app
+sudo apt update && sudo apt -y install git
+git clone https://github.com/JimothyJohn/stylegan-scripts # clone repo
+cd stylegan-scripts # move to repo directory
 ```
 
-## Functionality
+### [Anaconda](https://docs.conda.io/en/latest/miniconda.html#linux-installers)
 
-You can run:
+Install Anaconda environment and initialize with:
 
-* Generation: Quickly generate images and save their mappings
+```bash
+conda env create -f environment.yml
+conda activate stylegan 
+```
 
-* Projection: Extract mappings from your own images (in progress)
+### [Docker](https://docs.docker.com/engine/install/ubuntu/)
 
-* Synthesis: Generate and combine images from mappings
+Build Docker image and run with:
+
+```bash
+docker/docker_build.sh
+utils/Streamlit.sh
+```
