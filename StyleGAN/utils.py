@@ -13,9 +13,9 @@
 #      One Millisecond Face Alignment with an Ensemble of Regression Trees by
 #      Vahid Kazemi and Josephine Sullivan, CVPR 2014
 #   and was trained on the iBUG 300-W face landmark dataset (see
-#   https://ibug.doc.ic.ac.uk/resources/facial-point-annotations/):  
-#      C. Sagonas, E. Antonakos, G, Tzimiropoulos, S. Zafeiriou, M. Pantic. 
-#      300 faces In-the-wild challenge: Database and results. 
+#   https://ibug.doc.ic.ac.uk/resources/facial-point-annotations/):
+#      C. Sagonas, E. Antonakos, G, Tzimiropoulos, S. Zafeiriou, M. Pantic.
+#      300 faces In-the-wild challenge: Database and results.
 #      Image and Vision Computing (IMAVIS), Special Issue on Facial Landmark Localisation "In-The-Wild". 2016.
 #   You can get the trained model file from:
 #   http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2.
@@ -23,64 +23,70 @@
 #   So you should contact Imperial College London to find out if it's OK for
 #   you to use this model file in a commercial product.
 
-import os, argparse, glob, json, dlib
+import os, json, dlib
 from pathlib import Path
 from ffhqtools import recreate_aligned_images
 
+
 def cleanJSON(json_template):
     jsonClone = json_template
-    jsonClone["0"]["metadata"]["photo_url"]=""
-    jsonClone["0"]["metadata"]["photo_title"]=""
-    jsonClone["0"]["metadata"]["author"]="Nick Armenta"
-    jsonClone["0"]["metadata"]["country"]="USA"
-    jsonClone["0"]["metadata"]["date_uploaded"]=""
-    jsonClone["0"]["metadata"]["date_crawled"]="N/A"
-    
-    jsonClone["0"]["image"]["file_url"]=""
-    jsonClone["0"]["image"]["file_path"]=""
-    jsonClone["0"]["image"]["file_size"]=0
-    jsonClone["0"]["image"]["file_md5"]=""
-    jsonClone["0"]["image"]["pixel_md5"]=""
-    jsonClone["0"]["image"]["face_landmarks"]=[[0, 0] for count in range(68)]
+    jsonClone["0"]["metadata"]["photo_url"] = ""
+    jsonClone["0"]["metadata"]["photo_title"] = ""
+    jsonClone["0"]["metadata"]["author"] = "Nick Armenta"
+    jsonClone["0"]["metadata"]["country"] = "USA"
+    jsonClone["0"]["metadata"]["date_uploaded"] = ""
+    jsonClone["0"]["metadata"]["date_crawled"] = "N/A"
 
-    jsonClone["0"]["thumbnail"]["file_url"]=""
-    jsonClone["0"]["thumbnail"]["file_path"]=""
-    jsonClone["0"]["thumbnail"]["file_size"]=0
-    jsonClone["0"]["thumbnail"]["file_md5"]=""
-    jsonClone["0"]["thumbnail"]["pixel_md5"]=""
+    jsonClone["0"]["image"]["file_url"] = ""
+    jsonClone["0"]["image"]["file_path"] = ""
+    jsonClone["0"]["image"]["file_size"] = 0
+    jsonClone["0"]["image"]["file_md5"] = ""
+    jsonClone["0"]["image"]["pixel_md5"] = ""
+    jsonClone["0"]["image"]["face_landmarks"] = [[0, 0] for count in range(68)]
 
-    jsonClone["0"]["in_the_wild"]["file_url"]=""
-    jsonClone["0"]["in_the_wild"]["file_path"]=""
-    jsonClone["0"]["in_the_wild"]["file_size"]=0
-    jsonClone["0"]["in_the_wild"]["file_md5"]=""
-    jsonClone["0"]["in_the_wild"]["pixel_md5"]=""
-    jsonClone["0"]["in_the_wild"]["face_rect"]=[0, 0, 0, 0]
-    jsonClone["0"]["in_the_wild"]["face_landmarks"]=[[0, 0] for count in range(68)]
-    jsonClone["0"]["in_the_wild"]["face_quad"]=""
+    jsonClone["0"]["thumbnail"]["file_url"] = ""
+    jsonClone["0"]["thumbnail"]["file_path"] = ""
+    jsonClone["0"]["thumbnail"]["file_size"] = 0
+    jsonClone["0"]["thumbnail"]["file_md5"] = ""
+    jsonClone["0"]["thumbnail"]["pixel_md5"] = ""
+
+    jsonClone["0"]["in_the_wild"]["file_url"] = ""
+    jsonClone["0"]["in_the_wild"]["file_path"] = ""
+    jsonClone["0"]["in_the_wild"]["file_size"] = 0
+    jsonClone["0"]["in_the_wild"]["file_md5"] = ""
+    jsonClone["0"]["in_the_wild"]["pixel_md5"] = ""
+    jsonClone["0"]["in_the_wild"]["face_rect"] = [0, 0, 0, 0]
+    jsonClone["0"]["in_the_wild"]["face_landmarks"] = [[0, 0] for count in range(68)]
+    jsonClone["0"]["in_the_wild"]["face_quad"] = ""
 
     return jsonClone
+
 
 def get_landmarks(dlibImage, detector, predictor):
     # Find bounding box of faces and upsample once
     dets = detector(dlibImage, 1)
-    if len(dets)==0: return None # if no faces are found report none
-    detection = dets[0] # CHANGE THIS LINE TO LOOP FOR MULTIPLE FACES
-    shape = predictor(dlibImage, detection) # get face landmarks
+    if len(dets) == 0:
+        return None  # if no faces are found report none
+    detection = dets[0]  # CHANGE THIS LINE TO LOOP FOR MULTIPLE FACES
+    shape = predictor(dlibImage, detection)  # get face landmarks
     # Create landmark list
     return [(part.x, part.y) for part in shape.parts()]
 
+
 SAVING_JSON = True
+
 
 def AlignFace(ImageFilename):
     imageName = Path(ImageFilename).stem
-    imagePath = f'out/{ImageFilename}'
-    num = f'0'
+    imagePath = f"out/{ImageFilename}"
+    num = f"0"
 
     # Create output directory if needed
-    if not os.path.exists('out/json'): os.mkdir('out/json')
+    if not os.path.exists("out/json"):
+        os.mkdir("out/json")
 
     # Load json template and duplicate
-    with open('templates/template.json', 'r') as f:
+    with open("templates/template.json", "r") as f:
         f_json = json.load(f)
         f.close()
 
@@ -88,46 +94,48 @@ def AlignFace(ImageFilename):
 
     # Initialize dlib objects
     detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor('models/shape-predictor.dat')
+    predictor = dlib.shape_predictor("models/shape-predictor.dat")
 
     # Save metadata
-    img = dlib.load_rgb_image(imagePath) # load image for dlib
+    img = dlib.load_rgb_image(imagePath)  # load image for dlib
 
     # Find bounding box of faces and upsample once
     dets = detector(img, 1)
-    if len(dets)==0:
+    if len(dets) == 0:
         print(f"Skipping image {imageName}")
         return
-    
-    detection = dets[0] # CHANGE THIS LINE TO LOOP FOR MULTIPLE FACES
-    shape = predictor(img, detection) # get face landmarks
+
+    detection = dets[0]  # CHANGE THIS LINE TO LOOP FOR MULTIPLE FACES
+    shape = predictor(img, detection)  # get face landmarks
     # Create landmark list
     landmarks = [(part.x, part.y) for part in shape.parts()]
-    newJson[num]["in_the_wild"]["face_landmarks"] = landmarks # save landmarks to json
-    newJson[num]["in_the_wild"]["face_rect"]=[
+    newJson[num]["in_the_wild"]["face_landmarks"] = landmarks  # save landmarks to json
+    newJson[num]["in_the_wild"]["face_rect"] = [
         detection.left(),
         detection.top(),
         detection.right(),
-        detection.bottom()]
-    newJson[num]["in_the_wild"]["file_path"] = f'{imagePath}'
-    newJson[num]["in_the_wild"]["file_size"]= os.path.getsize(imagePath)
+        detection.bottom(),
+    ]
+    newJson[num]["in_the_wild"]["file_path"] = f"{imagePath}"
+    newJson[num]["in_the_wild"]["file_size"] = os.path.getsize(imagePath)
 
     # Align to landmarks in json file
-    alignedImage = recreate_aligned_images(newJson,
-                                        output_size=1024,
-                                        transform_size=4096,
-                                        enable_padding=True)
+    alignedImage = recreate_aligned_images(
+        newJson, output_size=1024, transform_size=4096, enable_padding=True
+    )
 
     # Save aligned image
     savePath = f"out/{imageName}-aligned.png"
-    alignedImage.save(savePath) # save image to file
+    alignedImage.save(savePath)  # save image to file
     if SAVING_JSON:
         newJson[num]["image"]["file_path"] = savePath
-        newJson[num]["image"]["file_size"]= os.path.getsize(savePath)
+        newJson[num]["image"]["file_size"] = os.path.getsize(savePath)
         # CHANGE TO USE IMAGE VARIABLE
-        newJson[num]["image"]["face_landmarks"] = get_landmarks(img, detector, predictor)
+        newJson[num]["image"]["face_landmarks"] = get_landmarks(
+            img, detector, predictor
+        )
 
-        with open(f"out/json/{imageName}.json".format(), 'w') as f:
+        with open(f"out/json/{imageName}.json".format(), "w") as f:
             json.dump(newJson, f)
             f.close()
 

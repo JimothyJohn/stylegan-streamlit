@@ -13,12 +13,14 @@ ENV PYTHONUNBUFFERED 1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LIBGL_ALWAYS_INDIRECT=1
 
-RUN apt-get update
-RUN apt-get -y install libglfw3-dev mesa-utils libgl1-mesa-glx
-RUN pip install imageio-ffmpeg==0.4.4 pyspng==0.1.0 streamlit imageio dlib
-RUN pip install 'git+https://github.com/facebookresearch/detectron2.git'
+RUN apt-get update && \
+    apt-get -y install \
+    libglfw3-dev \
+    mesa-utils \
+    libgl1-mesa-glx \
+    ffmpeg
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
 WORKDIR /workspace
-
-# RUN (printf '#!/bin/bash\nexec \"$@\"\n' >> /entry.sh) && chmod a+x /entry.sh
-# ENTRYPOINT ["/entry.sh"]

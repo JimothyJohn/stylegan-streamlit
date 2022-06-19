@@ -168,3 +168,7 @@ training-runs/*
 .torch/
 .local/
 .vscode/
+.cache/
+.config/
+.local/
+.streamlit/
